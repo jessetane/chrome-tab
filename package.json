@@ -10,6 +10,7 @@
     "rpc-engine": "^2.0.1",
     "ws": "^1.0.1"
   },
+  "repository": "https://github.com/jessetane/chrome-tab",
   "author": "jesse.tane@gmail.com",
   "license": "Public domain"
 }
