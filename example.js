@@ -1,14 +1,3 @@
-# chrome-tab
-Sugar for Chrome's [remote debugging protocol](https://developer.chrome.com/devtools/docs/debugger-protocol).
-
-## Why
-Phantom's cool but it's hard to get your hands on a binary. Also why not just use a real browser?
-
-## How
-[JSON-RPC](http://www.jsonrpc.org/specification) over a WebSocket. This is the same interface devtools uses to talk to Chrome - check out the API [here](https://developer.chrome.com/devtools/docs/protocol/1.1/index).
-
-## Example
-``` javascript
 var Tab = require('./')
 var Emitter = require('events')
 
@@ -49,7 +38,3 @@ tab.open(err => {
     url: 'https://github.com/GoogleChrome/chrome-app-samples/tree/master/samples/websocket-server'
   }, err => {})
 })
-```
-
-## License
-Public domain
