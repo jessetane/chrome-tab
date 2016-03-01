@@ -1,0 +1,15 @@
+{
+  "name": "chrome-tab",
+  "version": "1.0.0",
+  "description": "Sugar for Chrome's remote debugging protocol",
+  "browser": {
+    "ws": false
+  },
+  "dependencies": {
+    "inherits": "^2.0.1",
+    "rpc": "github:jessetane/rpc#1.1.0",
+    "ws": "^1.0.1"
+  },
+  "author": "jesse.tane@gmail.com",
+  "license": "Public domain"
+}
