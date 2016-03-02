@@ -3,7 +3,7 @@ module.exports = ChromeTab
 var http = require('http')
 var inherits = require('inherits')
 var WebSocket = require('ws') || window.WebSocket
-var RPC = require('rpc')
+var RPC = require('rpc-engine')
 
 inherits(ChromeTab, RPC)
 
