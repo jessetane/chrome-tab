@@ -18,6 +18,26 @@ function ChromeTab (opts) {
   this.deserialize = JSON.parse
 }
 
+ChromeTab.list = function (opts, cb) {
+  if (!opts || typeof opts === 'function') {
+    cb = opts
+    opts = {}
+  }
+  opts.host = opts.host || 'localhost'
+  opts.port = opts.port || 9222
+  opts.timeout = opts.timeout || 5000
+  opts.path = '/json/list'
+  request(opts, (err, data) => {
+    if (err) return cb(err)
+    var tabs = JSON.parse(data).map(meta => {
+      var tab = new ChromeTab(opts)
+      tab.meta = meta
+      return tab
+    })
+    cb && cb(null, tabs)
+  })
+}
+
 ChromeTab.prototype.open = function (cb) {
   var self = this
   request({
