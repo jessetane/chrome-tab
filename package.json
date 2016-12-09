@@ -7,8 +7,8 @@
   },
   "dependencies": {
     "inherits": "^2.0.1",
-    "rpc-engine": "^2.0.1",
-    "ws": "^1.0.1"
+    "rpc-engine": "^2.1.1",
+    "ws": "^1.1.1"
   },
   "repository": "https://github.com/jessetane/chrome-tab",
   "author": "jesse.tane@gmail.com",
