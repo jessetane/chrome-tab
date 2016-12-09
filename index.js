@@ -28,15 +28,7 @@ ChromeTab.prototype.open = function (cb) {
   }, function (err, data) {
     if (err) return cb(err)
     self.meta = JSON.parse(data)
-    request({
-      path: '/json/activate/' + data.id,
-      host: self.host,
-      port: self.port,
-      timeout: self.timeout
-    }, function (err, data) {
-      if (err) return cb(err)
-      self.connect(cb)
-    })
+    self.connect(cb)
   })
 }
 
