@@ -2,11 +2,11 @@
 Sugar for Chrome's devtools protocol.
 
 ## Why
-[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) proved too heavy and unstable for real-world use cases. Talking raw CDP isn't smooth either as there is currently no straightforward way to get a page session for an active tab, and Chrome's JSON-RPC implementation diverged from spec (`sessionId` outside params, requiring numeric message IDs, etc).
+[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) crashed my machine. Yea I had a $#17 ton of tabs open, but that's life. Talking straight CDP isn't smooth either as there is currently no straightforward way to get a page session for an active tab, also Chrome's JSON-RPC layer diverged from spec (`sessionId` outside params, demanding numeric message IDs, etc).
 
 ## How
 * Workaround for cleanly finding active tabs / pages / sessionIds
-* stdio based MCP server with a pinch of sugar, dumb proxy for everything else
+* stdio based MCP server with just a pinch of sugar, dumb proxy for everything else
 
 ## Usage
 ```javascript
@@ -42,9 +42,9 @@ const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 ```json
 {
 	"mcpServers": {
-		"chrome": {
+		"chrome-tab": {
 			"command": "npx",
-			"args": ["-y", "chrome-tab", "--port", "9222"]
+			"args": ["-y", "chrome-tab"]
 		}
 	}
 }
