@@ -1,40 +1,21 @@
-var Tab = require('./')
-var Emitter = require('events')
+import Chrome from './index.js'
 
-var tab = new Tab()
+// Connect to Chrome's root debugging port
+const browser = new Chrome()
+await browser.connect()
 
-process.on('SIGINT', () => {
-  tab.close(process.exit)
-})
+// List active tabs (default is active-only to conserve resources)
+const tabs = await browser.listTabs()
+const tab = tabs[0]
+console.log('Active tab:', tab.title, `(${tab.url})`)
 
-tab.open(err => {
-  if (err) throw err
+// Attach to that tab to get a page sessionId
+const sessionId = await browser.attachTab(tab.targetId)
 
-  var events = new Emitter()
+// Evaluate JavaScript in page context
+const res = await browser.call('Runtime.evaluate', {
+	expression: 'document.title',
+	returnByValue: true
+}, sessionId)
 
-  // use rpc-engine's default method to catch any incoming notifications
-  tab.defaultMethod = (name, params) => {
-    events.emit(name, params)
-  }
-
-  // open the Page and Network notification firehoses
-  tab.call('Page.enable', err => {})
-  tab.call('Network.enable', err => {})
-
-  // wait for Page.frameNavigated
-  events.once('Page.frameNavigated', (params) => {
-    console.log('Page.frameNavigated', params)
-
-    // use Runtime.execute to run some js to dump the document's outerHTML
-    tab.call('Runtime.evaluate', {
-      expression: 'document.documentElement.outerHTML',
-      returnByValue: true
-    }, (err, result) => {
-      console.log(result.result.value)
-    })
-  })
-
-  tab.call('Page.navigate', {
-    url: 'https://github.com/GoogleChrome/chrome-app-samples/tree/master/samples/websocket-server'
-  }, err => {})
-})
+console.log('Page title via eval:', res.result?.value)

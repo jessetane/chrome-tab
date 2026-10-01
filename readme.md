@@ -1,55 +1,66 @@
 # chrome-tab
-Sugar for Chrome's [remote debugging protocol](https://developer.chrome.com/devtools/docs/debugger-protocol).
+Sugar for Chrome's devtools protocol.
 
 ## Why
-Phantom's cool but it's hard to get your hands on a binary. Also why not just use a real browser?
+[chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) proved too heavy and unstable for real-world use cases. Talking raw CDP isn't smooth either as there is currently no straightforward way to get a page session for an active tab, and Chrome's JSON-RPC implementation diverged from spec (`sessionId` outside params, requiring numeric message IDs, etc).
 
 ## How
-[JSON-RPC](http://www.jsonrpc.org/specification) over a WebSocket. This is the same interface devtools uses to talk to Chrome - check out the API [here](https://developer.chrome.com/devtools/docs/protocol/1.1/index).
+* Workaround for cleanly finding active tabs / pages / sessionIds
+* stdio based MCP server with a pinch of sugar, dumb proxy for everything else
 
-## Example
-``` javascript
-var Tab = require('./')
-var Emitter = require('events')
+## Usage
+```javascript
+import Chrome from 'chrome-tab'
 
-var tab = new Tab()
+// Connect to Chrome's root debugging port (auto-discovers port or defaults to 9222)
+const browser = new Chrome()
+await browser.connect()
 
-process.on('SIGINT', () => {
-  tab.close(process.exit)
-})
+// List open active tabs (default)
+const tabs = await browser.listTabs()
+const targetId = tabs[0].targetId
 
-tab.open(err => {
-  if (err) throw err
+// Attach to the tab to obtain its page sessionId
+const sessionId = await browser.attachTab(targetId)
 
-  var events = new Emitter()
+// Run JavaScript in that tab session
+const { result } = await browser.call('Runtime.evaluate', {
+	expression: 'document.title',
+	returnByValue: true
+}, sessionId)
 
-  // use rpc-engine's default method to catch any incoming notifications
-  tab.defaultMethod = (name, params) => {
-    events.emit(name, params)
-  }
+// Navigate that tab session
+await browser.call('Page.navigate', { url: 'https://github.com' }, sessionId)
 
-  // open the Page and Network notification firehoses
-  tab.call('Page.enable', err => {})
-  tab.call('Network.enable', err => {})
-
-  // wait for Page.frameNavigated
-  events.once('Page.frameNavigated', (params) => {
-    console.log('Page.frameNavigated', params)
-
-    // use Runtime.execute to run some js to dump the document's outerHTML
-    tab.call('Runtime.evaluate', {
-      expression: 'document.documentElement.outerHTML',
-      returnByValue: true
-    }, (err, result) => {
-      console.log(result.result.value)
-    })
-  })
-
-  tab.call('Page.navigate', {
-    url: 'https://github.com/GoogleChrome/chrome-app-samples/tree/master/samples/websocket-server'
-  }, err => {})
-})
+// Capture screenshot
+const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 ```
 
+## MCP
+
+### Config
+```json
+{
+	"mcpServers": {
+		"chrome": {
+			"command": "npx",
+			"args": ["-y", "chrome-tab", "--port", "9222"]
+		}
+	}
+}
+```
+
+### Options
+- `--port`, `-p` or `CHROME_PORT`: Port to connect to (defaults to auto-discovered port, or `9222`).
+- `--host`, `-h` or `CHROME_HOST`: Host to connect to (default: `127.0.0.1`).
+- `--path` or `CHROME_PATH`: Custom WebSocket path.
+
+### Tools
+- `list_tabs({ query?, all? })` - Lists open tabs (active-only by default; pass `query` to search all tabs by title/URL, or `all: true` for all background tabs).
+- `attach_tab({ targetId })` - Attaches to a tab and returns a `sessionId`.
+- `eval({ sessionId, script })` - Evaluates JavaScript in the tab's page context.
+- `screenshot({ sessionId, format?, quality? })` - Takes a screenshot of the tab and renders the image.
+- `call({ method, params?, sessionId? })` - Universal CDP passthrough for raw commands.
+
 ## License
-Public domain
+MIT
