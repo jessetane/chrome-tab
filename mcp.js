@@ -128,17 +128,17 @@ const tools = [
 const mcp = new RpcEngine({
 	objectMode: true,
 	deserialize: JSON.parse,
-	serialize: function (msg) {
+	serialize: msg => {
 		msg.jsonrpc = '2.0'
 		return JSON.stringify(msg)
 	}
 })
 
-mcp.send = function (msg) {
+mcp.send = msg => {
 	process.stdout.write(msg + '\n')
 }
 
-mcp.methods['initialize'] = function () {
+mcp.methods.initialize = () => {
 	return {
 		protocolVersion: '2024-11-05',
 		capabilities: { tools: {} },
@@ -146,19 +146,19 @@ mcp.methods['initialize'] = function () {
 	}
 }
 
-mcp.methods['ping'] = function () {
+mcp.methods.ping = () => {
 	return {}
 }
 
-mcp.methods['notifications/initialized'] = function () {
+mcp.methods['notifications/initialized'] = () => {
 	// noop
 }
 
-mcp.methods['tools/list'] = function () {
+mcp.methods['tools/list'] = () => {
 	return { tools }
 }
 
-mcp.methods['tools/call'] = async function (params) {
+mcp.methods['tools/call'] = async params => {
 	const name = params?.name
 	const args = params?.arguments || {}
 	try {
@@ -219,10 +219,10 @@ mcp.methods['tools/call'] = async function (params) {
 }
 
 const rl = createInterface({ input: process.stdin, terminal: false })
-rl.on('line', function (line) {
+rl.on('line', line => {
 	if (!line.trim()) return
 	mcp.receive(line)
 })
-rl.on('close', function () {
+rl.on('close', () => {
 	browser?.disconnect()
 })
