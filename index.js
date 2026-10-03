@@ -75,8 +75,10 @@ class Chrome extends RpcEngine {
 
 	disconnect () {
 		if (this.ws) {
-			this.ws.close()
+			const ws = this.ws
 			this.ws = null
+			ws.close()
+			this.close(new Error('Browser disconnected'))
 		}
 	}
 
@@ -104,6 +106,7 @@ class Chrome extends RpcEngine {
 			await teardown()
 			reject(new Error('Timed out'))
 		}, this.timeout)
+		timeout.unref?.()
 		const onattached = async (evt) => {
 			if (evt.data._sessionId === sessionId) {
 				clearTimeout(timeout)
