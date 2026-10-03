@@ -138,9 +138,9 @@ mcp.send = msg => {
 	process.stdout.write(msg + '\n')
 }
 
-mcp.methods.initialize = () => {
+mcp.methods.initialize = params => {
 	return {
-		protocolVersion: '2024-11-05',
+		protocolVersion: params?.protocolVersion || '2024-11-05',
 		capabilities: { tools: {} },
 		serverInfo: { name: 'chrome', version: '2.0.0' }
 	}
