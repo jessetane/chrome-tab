@@ -11,7 +11,7 @@
 		"node": ">=22"
 	},
 	"dependencies": {
-		"rpc-engine": "^12.1.2"
+		"rpc-engine": "^12.1.4"
 	},
 	"repository": "https://github.com/jessetane/chrome-tab",
 	"author": "jesse.tane@gmail.com",
