@@ -218,11 +218,17 @@ mcp.methods['tools/call'] = async params => {
 	}
 }
 
+function shutdown () {
+	browser?.disconnect()
+	process.exit(0)
+}
+
 const rl = createInterface({ input: process.stdin, terminal: false })
 rl.on('line', line => {
 	if (!line.trim()) return
 	mcp.receive(line)
 })
-rl.on('close', () => {
-	browser?.disconnect()
-})
+rl.on('close', shutdown)
+process.on('SIGINT', shutdown)
+process.on('SIGTERM', shutdown)
+
