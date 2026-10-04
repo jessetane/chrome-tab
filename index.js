@@ -108,7 +108,7 @@ class Chrome extends RpcEngine {
 			}, this.timeout)
 			timeout.unref?.()
 			const onattached = async (evt) => {
-				if (evt.data._sessionId === sessionId) {
+				if (sessionId && evt.data._sessionId) {
 					clearTimeout(timeout)
 					this.removeEventListener('Target.attachedToTarget', onattached)
 					try {
