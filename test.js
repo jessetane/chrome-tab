@@ -81,7 +81,10 @@ test('attachTab performs tab-to-page session attach sequence', async t => {
 	browser.onMethod('Target.attachToTarget', params => {
 		if (params.targetId === 'tab-target-123') {
 			tabAttached = true
-			return { sessionId: 'tab-session-1' }
+			browser.emitEvent('Target.attachedToTarget', {
+				targetInfo: { targetId: 'tab-target-123', type: 'tab' }
+			})
+			return new Promise(r => setTimeout(() => r({ sessionId: 'tab-session-1' }), 10))
 		}
 		if (params.targetId === 'page-target-456') {
 			t.assert.ok(tabDetached)
@@ -99,6 +102,9 @@ test('attachTab performs tab-to-page session attach sequence', async t => {
 		return {}
 	})
 	browser.onMethod('Target.detachFromTarget', params => {
+		if (!params.sessionId) {
+			throw new Error('Session id must be specified')
+		}
 		if (params.sessionId === 'tab-session-1') {
 			tabDetached = true
 			return {}
