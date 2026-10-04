@@ -92,50 +92,50 @@ class Chrome extends RpcEngine {
 		return tabs.filter(t => t.embedderData?.tabActive)
 	}
 
-	async attachTab (targetId) {
-		let resolve, reject, sessionId
-		const d = new Promise((s, f) => { resolve = s; reject = f })
-		const teardown = async () => {
-			clearTimeout(timeout)
-			this.removeEventListener('Target.attachedToTarget', onattached)
-			if (sessionId) {
-				this.call('Target.detachFromTarget', { sessionId }).catch(e => {})
-			}
-		}
-		const timeout = setTimeout(async () => {
-			await teardown()
-			reject(new Error('Timed out'))
-		}, this.timeout)
-		timeout.unref?.()
-		const onattached = async (evt) => {
-			if (evt.data._sessionId === sessionId) {
+	attachTab (targetId) {
+		return new Promise(async (resolve, reject) => {
+			let sessionId
+			const teardown = async () => {
 				clearTimeout(timeout)
 				this.removeEventListener('Target.attachedToTarget', onattached)
-				try {
-					await this.call('Target.detachFromTarget', { sessionId })
-					const pageTargetId = evt.data.targetInfo.targetId
-					const res = await this.call('Target.attachToTarget', { targetId: pageTargetId, flatten: true })
-					resolve(res.sessionId)
-				} catch (err) {
-					reject(err)
+				if (sessionId) {
+					this.call('Target.detachFromTarget', { sessionId }).catch(e => {})
 				}
 			}
-		}
-		try {
-			this.addEventListener('Target.attachedToTarget', onattached)
-			const res = await this.call('Target.attachToTarget', { targetId, flatten: true })
-			sessionId = res.sessionId
-			await this.call('Target.setAutoAttach', {
-				autoAttach: true,
-				waitForDebuggerOnStart: false,
-				filter: [{ type: 'page' }],
-				flatten: true
-			}, sessionId)
-		} catch (err) {
-			await teardown()
-			reject(err)
-		}
-		return d
+			const timeout = setTimeout(async () => {
+				await teardown()
+				reject(new Error('Timed out'))
+			}, this.timeout)
+			timeout.unref?.()
+			const onattached = async (evt) => {
+				if (evt.data._sessionId === sessionId) {
+					clearTimeout(timeout)
+					this.removeEventListener('Target.attachedToTarget', onattached)
+					try {
+						await this.call('Target.detachFromTarget', { sessionId })
+						const pageTargetId = evt.data.targetInfo.targetId
+						const res = await this.call('Target.attachToTarget', { targetId: pageTargetId, flatten: true })
+						resolve(res.sessionId)
+					} catch (err) {
+						reject(err)
+					}
+				}
+			}
+			try {
+				this.addEventListener('Target.attachedToTarget', onattached)
+				const res = await this.call('Target.attachToTarget', { targetId, flatten: true })
+				sessionId = res.sessionId
+				await this.call('Target.setAutoAttach', {
+					autoAttach: true,
+					waitForDebuggerOnStart: false,
+					filter: [{ type: 'page' }],
+					flatten: true
+				}, sessionId)
+			} catch (err) {
+				await teardown()
+				reject(err)
+			}
+		})
 	}
 
 	_send (message, params) {
