@@ -5,6 +5,8 @@ Sugar for Chrome's devtools protocol.
 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) crashed my machine. The issue appears to worsen with the number of tabs, and I have far too many of those. Raw CDP isn't smooth either as there is currently no straightforward way to get a page session for an active tab, also Chrome's JSON-RPC layer diverged from [spec](https://www.jsonrpc.org/specification) (`sessionId` outside params, demanding numeric message IDs, etc).
 
 ## How
+
+* Auto-discovers active debugging ports across Chromium-based browsers on macOS, Linux, and Windows without flags or configuration.
 * Workaround for cleanly finding active tabs / pages / sessionIds.
 * stdio based MCP server with just a pinch of sugar, dumb proxy for everything else.
 
