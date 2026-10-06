@@ -1,27 +1,5 @@
-import { readFileSync, existsSync } from 'fs'
-import { homedir } from 'os'
-import { join } from 'path'
 import RpcEngine from 'rpc-engine'
-
-function getDevToolsActivePort () {
-	const home = homedir()
-	const candidates = [
-		join(home, 'Library/Application Support/Google/Chrome/DevToolsActivePort'),
-		join(home, '.config/google-chrome/DevToolsActivePort'),
-		process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'Google/Chrome/User Data/DevToolsActivePort') : null
-	].filter(Boolean)
-	for (const candidate of candidates) {
-		if (existsSync(candidate)) {
-			try {
-				const content = readFileSync(candidate, 'utf-8').trim().split('\n')
-				if (content.length >= 2) {
-					return { port: parseInt(content[0].trim(), 10), path: content[1].trim() }
-				}
-			} catch (e) {}
-		}
-	}
-	return null
-}
+import devtoolsActivePort from 'devtools-active-port'
 
 class Chrome extends RpcEngine {
 	constructor (opts = {}) {
@@ -48,7 +26,7 @@ class Chrome extends RpcEngine {
 			ws.close()
 		}
 		if (!this.port) {
-			const info = getDevToolsActivePort()
+			const info = devtoolsActivePort()
 			if (info) {
 				this.port = info.port
 				this.path = info.path
