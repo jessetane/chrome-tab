@@ -73,7 +73,7 @@ class Chrome extends RpcEngine {
 	attachTab (targetId) {
 		return new Promise(async (resolve, reject) => {
 			let sessionId
-			const teardown = async () => {
+			const teardown = () => {
 				clearTimeout(timeout)
 				this.removeEventListener('Target.attachedToTarget', onattached)
 				if (sessionId) {
@@ -81,7 +81,7 @@ class Chrome extends RpcEngine {
 				}
 			}
 			const timeout = setTimeout(async () => {
-				await teardown()
+				teardown()
 				reject(new Error('Timed out'))
 			}, this.timeout)
 			timeout.unref?.()
@@ -110,7 +110,7 @@ class Chrome extends RpcEngine {
 					flatten: true
 				}, sessionId)
 			} catch (err) {
-				await teardown()
+				teardown()
 				reject(err)
 			}
 		})
