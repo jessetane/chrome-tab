@@ -31,17 +31,13 @@ async function getBrowser () {
 const tools = [
 	{
 		name: 'list_tabs',
-		description: 'Lists open Chrome tabs. Returns active/focused tabs by default (one per window) to conserve tokens. Avoid using "all: true" unless necessary; pass "query" instead to search background tabs by title or URL.',
+		description: 'Lists active Chrome tabs. Returns one tab per window. Pass "query" to search all tabs by title or URL.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				query: {
 					type: 'string',
-					description: 'Search string to filter tabs across all windows by title or URL (case-insensitive)'
-				},
-				all: {
-					type: 'boolean',
-					description: 'If true, returns every background tab across all windows (discouraged; prefer using "query" to avoid overwhelming token context)'
+					description: 'Search string to filter all tabs by title or URL (case-insensitive)'
 				}
 			}
 		}
@@ -164,7 +160,7 @@ mcp.methods['tools/call'] = async params => {
 	try {
 		const b = await getBrowser()
 		if (name === 'list_tabs') {
-			const tabs = await b.listTabs({ query: args.query, all: args.all })
+			const tabs = await b.listTabs({ query: args.query })
 			const summary = (tabs || []).map(t => ({
 				targetId: t.targetId,
 				title: t.title,
