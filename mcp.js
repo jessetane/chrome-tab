@@ -4,6 +4,7 @@ import { createInterface } from 'readline'
 import { parseArgs } from 'util'
 import RpcEngine from 'rpc-engine'
 import Chrome from './index.js'
+import pkg from './package.json' with { type: 'json' }
 
 const { values } = parseArgs({
 	args: process.argv.slice(2),
@@ -142,7 +143,7 @@ mcp.methods.initialize = params => {
 	return {
 		protocolVersion: params?.protocolVersion || '2024-11-05',
 		capabilities: { tools: {} },
-		serverInfo: { name: 'chrome', version: '2.0.0' }
+		serverInfo: { name: pkg.name, version: pkg.version }
 	}
 }
 
