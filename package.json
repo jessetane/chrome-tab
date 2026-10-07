@@ -1,6 +1,6 @@
 {
 	"name": "chrome-tab",
-	"version": "3.1.0",
+	"version": "3.1.1",
 	"description": "Sugar for Chrome's devtools protocol",
 	"type": "module",
 	"main": "./index.js",
