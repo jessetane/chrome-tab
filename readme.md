@@ -5,7 +5,6 @@ Sugar for Chrome's devtools protocol.
 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) crashed my machine. The issue appears to worsen with the number of tabs, and I have far too many of those. Raw CDP isn't smooth either as there is currently no straightforward way to get a page session for an active tab, also Chrome's JSON-RPC layer diverged from [spec](https://www.jsonrpc.org/specification) (`sessionId` outside params, demanding numeric message IDs, etc).
 
 ## How
-
 * Auto-discovers active debugging ports across Chromium-based browsers on macOS, Linux, and Windows without flags or configuration.
 * Workaround for cleanly finding active tabs / pages / sessionIds.
 * stdio based MCP server with just a pinch of sugar, dumb proxy for everything else.
@@ -63,6 +62,9 @@ const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 - `eval({ sessionId, script })` - Evaluates JavaScript in the tab's page context.
 - `screenshot({ sessionId, format?, quality? })` - Takes a screenshot of the tab and renders the image.
 - `call({ method, params?, sessionId? })` - Universal CDP passthrough for raw commands.
+
+## Security
+Because chrome-tab attaches to your live browser and grants raw CDP access, it automatically inherits all of your authenticated sessions, cookies and other local storage along with full code execution privileges. Treat agent browser access like you would shell access. Hallucinations, mistakes and prompt injection are real, consider yourself warned!
 
 ## License
 MIT
