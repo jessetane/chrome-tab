@@ -7,6 +7,8 @@ class Chrome extends RpcEngine {
 		this.host = opts.host || '127.0.0.1'
 		this.port = opts.port || null
 		this.path = opts.path || ''
+		this.browser = opts.browser || null
+		this.userDataDir = opts.userDataDir || null
 		this.timeout = opts.timeout || 10000
 		this.serialize = JSON.stringify
 		this.deserialize = JSON.parse
@@ -26,7 +28,7 @@ class Chrome extends RpcEngine {
 			ws.close()
 		}
 		if (!this.port) {
-			const info = devtoolsActivePort()
+			const info = devtoolsActivePort({ browser: this.browser, userDataDir: this.userDataDir })
 			if (info) {
 				this.port = info.port
 				this.path = info.path

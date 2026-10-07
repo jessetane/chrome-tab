@@ -52,8 +52,10 @@ const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 ```
 
 ### Options
-- `--port`, `-p` or `CHROME_PORT`: Port to connect to (defaults to auto-discovered port, or `9222`).
-- `--host`, `-h` or `CHROME_HOST`: Host to connect to (default: `127.0.0.1`).
+- `--browser`, `-b` or `CHROME_BROWSER`: Target a specific browser flavor (chrome, canary, chromium, edge, brave, arc, vivaldi, opera).
+- `--user-data-dir` or `CHROME_USER_DATA_DIR`: Discover the active port from a specific user data directory (overrides --browser).
+- `--port`, `-p` or `CHROME_PORT`: Connect directly to an explicit port (overrides auto-discovery e.g. --user-data-dir, --browser).
+- `--host`, `-h` or `CHROME_HOST`: Host to connect to (default: 127.0.0.1).
 - `--path` or `CHROME_PATH`: Custom WebSocket path.
 
 ### Tools

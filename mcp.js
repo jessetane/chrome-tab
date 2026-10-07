@@ -10,7 +10,9 @@ const { values } = parseArgs({
 	options: {
 		port: { type: 'string', short: 'p' },
 		host: { type: 'string', short: 'h' },
-		path: { type: 'string' }
+		path: { type: 'string' },
+		browser: { type: 'string', short: 'b' },
+		'user-data-dir': { type: 'string' }
 	},
 	strict: false
 })
@@ -18,12 +20,14 @@ const { values } = parseArgs({
 const port = values.port ? parseInt(values.port, 10) : (process.env.CHROME_PORT ? parseInt(process.env.CHROME_PORT, 10) : null)
 const host = values.host || process.env.CHROME_HOST || '127.0.0.1'
 const path = values.path || process.env.CHROME_PATH || ''
+const browserName = values.browser || process.env.CHROME_BROWSER || ''
+const userDataDir = values['user-data-dir'] || process.env.CHROME_USER_DATA_DIR || ''
 
 let browser = null
 
 async function getBrowser () {
 	if (browser?.connected) return browser
-	browser = new Chrome({ host, port, path })
+	browser = new Chrome({ host, port, path, browser: browserName, userDataDir })
 	await browser.connect()
 	return browser
 }
