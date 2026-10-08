@@ -23,9 +23,7 @@ const host = values.host || process.env.CHROME_HOST || '127.0.0.1'
 const path = values.path || process.env.CHROME_PATH || ''
 const browserName = values.browser || process.env.CHROME_BROWSER || ''
 const userDataDir = values['user-data-dir'] || process.env.CHROME_USER_DATA_DIR || ''
-
-let browser = null
-let currentSessionId = null
+let browser, currentSessionId = null
 
 async function getBrowser () {
 	if (browser?.connected) return browser
@@ -47,8 +45,7 @@ const tools = [
 				}
 			}
 		}
-	},
-	{
+	}, {
 		name: 'attach_tab',
 		description: 'Attaches to a tab by targetId (or pass url to open and attach). Sets it as the default target for subsequent commands.',
 		inputSchema: {
@@ -64,8 +61,7 @@ const tools = [
 				}
 			}
 		}
-	},
-	{
+	}, {
 		name: 'eval',
 		description: 'Evaluates JavaScript in the tab and returns the result as JSON.',
 		inputSchema: {
@@ -86,8 +82,7 @@ const tools = [
 			},
 			required: ['script']
 		}
-	},
-	{
+	}, {
 		name: 'screenshot',
 		description: 'Captures a screenshot of the tab. sessionId is optional and automatically defaults to the most recently attached tab.',
 		inputSchema: {
@@ -108,8 +103,7 @@ const tools = [
 				}
 			}
 		}
-	},
-	{
+	}, {
 		name: 'call',
 		description: 'Raw CDP passthrough. Calls any Chrome DevTools Protocol method. sessionId defaults to the most recently attached tab for page-level domains, or omit for browser-level methods.',
 		inputSchema: {
@@ -133,118 +127,108 @@ const tools = [
 	}
 ]
 
+const methods = {
+	ping: () => ({}),
+	'tools/list': () => ({ tools }),
+	'notifications/initialized': () => ({}),
+	initialize: params => {
+		return {
+			protocolVersion: params?.protocolVersion || '2024-11-05',
+			capabilities: { tools: {} },
+			serverInfo: { name: pkg.name, version: pkg.version }
+		}
+	},
+	'tools/call': async params => {
+		const name = params?.name
+		const args = params?.arguments || {}
+		try {
+			const b = await getBrowser()
+			if (name === 'list_tabs') {
+				const tabs = await b.listTabs({ query: args.query })
+				const summary = (tabs || []).map(t => ({
+					targetId: t.targetId,
+					title: t.title,
+					url: t.url,
+					active: !!t.embedderData?.tabActive
+				}))
+				return { content: [{ type: 'text', text: JSON.stringify(summary) }] }
+			} else if (name === 'attach_tab') {
+				let targetId = args.targetId
+				const urlArg = args.url
+				if (urlArg) {
+					const url = typeof urlArg === 'string' ? urlArg : 'about:blank'
+					const res = await b.call('Target.createTarget', { url })
+					targetId = res.targetId
+				}
+				if (!targetId) throw new Error('targetId or url is required')
+				const sessionId = await b.attachTab(targetId)
+				currentSessionId = sessionId
+				return { content: [{ type: 'text', text: JSON.stringify({ sessionId }) }] }
+			} else if (name === 'eval') {
+				const sessionId = args.sessionId || currentSessionId
+				if (!sessionId) throw new Error('No tab session available. Call attach_tab first.')
+				if (args.wait > 0) {
+					await new Promise(r => setTimeout(r, Math.min(Number(args.wait), 30000)))
+				}
+				const res = await b.call('Runtime.evaluate', {
+					expression: args.script,
+					replMode: true,
+					returnByValue: true,
+					awaitPromise: true,
+					includeCommandLineAPI: true
+				}, sessionId)
+				if (res?.exceptionDetails) {
+					const desc = res.exceptionDetails.exception?.description || res.exceptionDetails.text
+					throw new Error(desc)
+				}
+				let text
+				if (res?.result?.type === 'undefined') {
+					text = 'undefined'
+				} else if (res?.result?.unserializableValue) {
+					text = res.result.unserializableValue
+				} else if (typeof res?.result?.value === 'string') {
+					text = res.result.value
+				} else {
+					text = JSON.stringify(res?.result?.value ?? null)
+				}
+				return { content: [{ type: 'text', text }] }
+			} else if (name === 'screenshot') {
+				const sessionId = args.sessionId || currentSessionId
+				if (!sessionId) throw new Error('No tab session available. Call attach_tab first.')
+				const cdpParams = {}
+				if (args.format) cdpParams.format = args.format
+				if (args.quality !== undefined) cdpParams.quality = args.quality
+				const res = await b.call('Page.captureScreenshot', cdpParams, sessionId)
+				const mimeType = args.format === 'jpeg' ? 'image/jpeg' : (args.format === 'webp' ? 'image/webp' : 'image/png')
+				return {
+					content: [{ type: 'image', data: res.data, mimeType }]
+				}
+			} else if (name === 'call') {
+				const isBrowserMethod = args.method?.startsWith('Browser.') || args.method?.startsWith('Target.')
+				const sessionId = args.sessionId !== undefined ? args.sessionId : (!isBrowserMethod ? currentSessionId : undefined)
+				const res = await b.call(args.method, args.params || {}, sessionId)
+				return { content: [{ type: 'text', text: JSON.stringify(res ?? null) }] }
+			}
+			throw new Error(`Unknown tool: ${name}`)
+		} catch (err) {
+			return {
+				isError: true,
+				content: [{ type: 'text', text: `Error: ${err.message}` }]
+			}
+		}
+	}
+}
+
 const mcp = new RpcEngine({
+	methods,
 	objectMode: true,
+	send: msg => process.stdout.write(msg + '\n'),
 	deserialize: JSON.parse,
 	serialize: msg => {
 		msg.jsonrpc = '2.0'
 		return JSON.stringify(msg)
 	}
 })
-
-mcp.send = msg => {
-	process.stdout.write(msg + '\n')
-}
-
-mcp.methods.initialize = params => {
-	return {
-		protocolVersion: params?.protocolVersion || '2024-11-05',
-		capabilities: { tools: {} },
-		serverInfo: { name: pkg.name, version: pkg.version }
-	}
-}
-
-mcp.methods.ping = () => {
-	return {}
-}
-
-mcp.methods['notifications/initialized'] = () => {
-	// noop
-}
-
-mcp.methods['tools/list'] = () => {
-	return { tools }
-}
-
-mcp.methods['tools/call'] = async params => {
-	const name = params?.name
-	const args = params?.arguments || {}
-	try {
-		const b = await getBrowser()
-		if (name === 'list_tabs') {
-			const tabs = await b.listTabs({ query: args.query })
-			const summary = (tabs || []).map(t => ({
-				targetId: t.targetId,
-				title: t.title,
-				url: t.url,
-				active: !!t.embedderData?.tabActive
-			}))
-			return { content: [{ type: 'text', text: JSON.stringify(summary) }] }
-		} else if (name === 'attach_tab') {
-			let targetId = args.targetId
-			const urlArg = args.url
-			if (urlArg) {
-				const url = typeof urlArg === 'string' ? urlArg : 'about:blank'
-				const res = await b.call('Target.createTarget', { url })
-				targetId = res.targetId
-			}
-			if (!targetId) throw new Error('targetId or url is required')
-			const sessionId = await b.attachTab(targetId)
-			currentSessionId = sessionId
-			return { content: [{ type: 'text', text: JSON.stringify({ sessionId }) }] }
-		} else if (name === 'eval') {
-			const sessionId = args.sessionId || currentSessionId
-			if (!sessionId) throw new Error('No tab session available. Call attach_tab first.')
-			if (args.wait > 0) {
-				await new Promise(r => setTimeout(r, Math.min(Number(args.wait), 30000)))
-			}
-			const res = await b.call('Runtime.evaluate', {
-				expression: args.script,
-				replMode: true,
-				returnByValue: true,
-				awaitPromise: true,
-				includeCommandLineAPI: true
-			}, sessionId)
-			if (res?.exceptionDetails) {
-				const desc = res.exceptionDetails.exception?.description || res.exceptionDetails.text
-				throw new Error(desc)
-			}
-			let text
-			if (res?.result?.type === 'undefined') {
-				text = 'undefined'
-			} else if (res?.result?.unserializableValue) {
-				text = res.result.unserializableValue
-			} else if (typeof res?.result?.value === 'string') {
-				text = res.result.value
-			} else {
-				text = JSON.stringify(res?.result?.value ?? null)
-			}
-			return { content: [{ type: 'text', text }] }
-		} else if (name === 'screenshot') {
-			const sessionId = args.sessionId || currentSessionId
-			if (!sessionId) throw new Error('No tab session available. Call attach_tab first.')
-			const cdpParams = {}
-			if (args.format) cdpParams.format = args.format
-			if (args.quality !== undefined) cdpParams.quality = args.quality
-			const res = await b.call('Page.captureScreenshot', cdpParams, sessionId)
-			const mimeType = args.format === 'jpeg' ? 'image/jpeg' : (args.format === 'webp' ? 'image/webp' : 'image/png')
-			return {
-				content: [{ type: 'image', data: res.data, mimeType }]
-			}
-		} else if (name === 'call') {
-			const isBrowserMethod = args.method?.startsWith('Browser.') || args.method?.startsWith('Target.')
-			const sessionId = args.sessionId !== undefined ? args.sessionId : (!isBrowserMethod ? currentSessionId : undefined)
-			const res = await b.call(args.method, args.params || {}, sessionId)
-			return { content: [{ type: 'text', text: JSON.stringify(res ?? null) }] }
-		}
-		throw new Error(`Unknown tool: ${name}`)
-	} catch (err) {
-		return {
-			isError: true,
-			content: [{ type: 'text', text: `Error: ${err.message}` }]
-		}
-	}
-}
 
 function shutdown () {
 	browser?.disconnect()
@@ -259,4 +243,3 @@ rl.on('line', line => {
 rl.on('close', shutdown)
 process.on('SIGINT', shutdown)
 process.on('SIGTERM', shutdown)
-
