@@ -25,6 +25,7 @@ const browserName = values.browser || process.env.CHROME_BROWSER || ''
 const userDataDir = values['user-data-dir'] || process.env.CHROME_USER_DATA_DIR || ''
 
 let browser = null
+let currentSessionId = null
 
 async function getBrowser () {
 	if (browser?.connected) return browser
@@ -36,59 +37,62 @@ async function getBrowser () {
 const tools = [
 	{
 		name: 'list_tabs',
-		description: 'Lists active Chrome tabs. Returns one tab per window. Pass "query" to search all tabs by title or URL.',
+		description: 'Lists active Chrome tabs (one per window). Pass query to search all tabs by title or URL.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				query: {
 					type: 'string',
-					description: 'Search string to filter all tabs by title or URL (case-insensitive)'
+					description: 'Filter tabs by title or URL'
 				}
 			}
 		}
 	},
 	{
 		name: 'attach_tab',
-		description: 'Attaches to a tab and returns a sessionId to use for page-level commands (eval, screenshot, call).',
+		description: 'Attaches to a tab by targetId (or pass url to open and attach). Sets it as the default target for subsequent commands.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				targetId: {
 					type: 'string',
-					description: 'The targetId of the tab from list_tabs'
+					description: 'Target ID from list_tabs'
+				},
+				url: {
+					type: 'string',
+					description: 'URL to open and attach to'
 				}
-			},
-			required: ['targetId']
+			}
 		}
 	},
 	{
 		name: 'eval',
-		description: 'Evaluates JavaScript in the specified tab session and returns the result.',
+		description: 'Evaluates JavaScript in the tab and returns the result as JSON.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				sessionId: {
-					type: 'string',
-					description: 'The sessionId obtained from attach_tab'
-				},
 				script: {
 					type: 'string',
-					description: 'JavaScript code to execute in the page context'
+					description: 'JavaScript to evaluate in REPL mode. Supports top-level await, let/const re-declaration, and console helpers $(sel) and $$(sel). The trailing expression result is returned.'
+				},
+				wait: {
+					type: 'number',
+					description: 'Optional ms to pause before evaluating script (lets animations, network, or DOM mutations settle)'
+				},
+				sessionId: {
+					type: 'string',
+					description: 'Defaults to the most recently attached tab; omit unless targeting a specific background session'
 				}
 			},
-			required: ['sessionId', 'script']
+			required: ['script']
 		}
 	},
 	{
 		name: 'screenshot',
-		description: 'Captures a screenshot of the specified tab session.',
+		description: 'Captures a screenshot of the tab. sessionId is optional and automatically defaults to the most recently attached tab.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				sessionId: {
-					type: 'string',
-					description: 'The sessionId obtained from attach_tab'
-				},
 				format: {
 					type: 'string',
 					enum: ['png', 'jpeg', 'webp'],
@@ -96,29 +100,32 @@ const tools = [
 				},
 				quality: {
 					type: 'number',
-					description: 'Compression quality from 0 to 100 (for jpeg/webp)'
+					description: 'Quality 0-100 (jpeg/webp)'
+				},
+				sessionId: {
+					type: 'string',
+					description: 'Defaults to the most recently attached tab; omit unless targeting a specific background session'
 				}
-			},
-			required: ['sessionId']
+			}
 		}
 	},
 	{
 		name: 'call',
-		description: 'Raw CDP passthrough. Calls any Chrome DevTools Protocol method. Pass sessionId for page-level domains, or omit for root browser-level domains.',
+		description: 'Raw CDP passthrough. Calls any Chrome DevTools Protocol method. sessionId defaults to the most recently attached tab for page-level domains, or omit for browser-level methods.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				method: {
 					type: 'string',
-					description: 'CDP method name (e.g. Page.navigate, Input.dispatchMouseEvent, DOM.querySelector, Target.createTarget)'
+					description: 'CDP method (e.g. Page.navigate, Input.dispatchMouseEvent, Target.createTarget)'
 				},
 				params: {
 					type: 'object',
-					description: 'Parameters for the CDP method'
+					description: 'CDP parameters'
 				},
 				sessionId: {
 					type: 'string',
-					description: 'Session ID from attach_tab (required for page-level methods, omit for browser methods)'
+					description: 'Defaults to the most recently attached tab for page methods; omit for browser methods'
 				}
 			},
 			required: ['method']
@@ -172,16 +179,32 @@ mcp.methods['tools/call'] = async params => {
 				url: t.url,
 				active: !!t.embedderData?.tabActive
 			}))
-			return { content: [{ type: 'text', text: JSON.stringify(summary, null, 2) }] }
+			return { content: [{ type: 'text', text: JSON.stringify(summary) }] }
 		} else if (name === 'attach_tab') {
-			const sessionId = await b.attachTab(args.targetId)
-			return { content: [{ type: 'text', text: JSON.stringify({ sessionId }, null, 2) }] }
+			let targetId = args.targetId
+			const urlArg = args.url
+			if (urlArg) {
+				const url = typeof urlArg === 'string' ? urlArg : 'about:blank'
+				const res = await b.call('Target.createTarget', { url })
+				targetId = res.targetId
+			}
+			if (!targetId) throw new Error('targetId or url is required')
+			const sessionId = await b.attachTab(targetId)
+			currentSessionId = sessionId
+			return { content: [{ type: 'text', text: JSON.stringify({ sessionId }) }] }
 		} else if (name === 'eval') {
+			const sessionId = args.sessionId || currentSessionId
+			if (!sessionId) throw new Error('No tab session available. Call attach_tab first.')
+			if (args.wait > 0) {
+				await new Promise(r => setTimeout(r, Math.min(Number(args.wait), 30000)))
+			}
 			const res = await b.call('Runtime.evaluate', {
 				expression: args.script,
+				replMode: true,
 				returnByValue: true,
-				awaitPromise: true
-			}, args.sessionId)
+				awaitPromise: true,
+				includeCommandLineAPI: true
+			}, sessionId)
 			if (res?.exceptionDetails) {
 				const desc = res.exceptionDetails.exception?.description || res.exceptionDetails.text
 				throw new Error(desc)
@@ -194,21 +217,25 @@ mcp.methods['tools/call'] = async params => {
 			} else if (typeof res?.result?.value === 'string') {
 				text = res.result.value
 			} else {
-				text = JSON.stringify(res?.result?.value ?? null, null, 2)
+				text = JSON.stringify(res?.result?.value ?? null)
 			}
 			return { content: [{ type: 'text', text }] }
 		} else if (name === 'screenshot') {
+			const sessionId = args.sessionId || currentSessionId
+			if (!sessionId) throw new Error('No tab session available. Call attach_tab first.')
 			const cdpParams = {}
 			if (args.format) cdpParams.format = args.format
 			if (args.quality !== undefined) cdpParams.quality = args.quality
-			const res = await b.call('Page.captureScreenshot', cdpParams, args.sessionId)
+			const res = await b.call('Page.captureScreenshot', cdpParams, sessionId)
 			const mimeType = args.format === 'jpeg' ? 'image/jpeg' : (args.format === 'webp' ? 'image/webp' : 'image/png')
 			return {
 				content: [{ type: 'image', data: res.data, mimeType }]
 			}
 		} else if (name === 'call') {
-			const res = await b.call(args.method, args.params || {}, args.sessionId)
-			return { content: [{ type: 'text', text: JSON.stringify(res ?? null, null, 2) }] }
+			const isBrowserMethod = args.method?.startsWith('Browser.') || args.method?.startsWith('Target.')
+			const sessionId = args.sessionId !== undefined ? args.sessionId : (!isBrowserMethod ? currentSessionId : undefined)
+			const res = await b.call(args.method, args.params || {}, sessionId)
+			return { content: [{ type: 'text', text: JSON.stringify(res ?? null) }] }
 		}
 		throw new Error(`Unknown tool: ${name}`)
 	} catch (err) {
