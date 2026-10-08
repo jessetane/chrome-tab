@@ -15,7 +15,7 @@
 	},
 	"dependencies": {
 		"devtools-active-port": "^1.0.0",
-		"rpc-engine": "^12.1.4"
+		"rpc-engine": "^12.1.5"
 	},
 	"repository": "https://github.com/jessetane/chrome-tab",
 	"author": "jesse.tane@gmail.com",
