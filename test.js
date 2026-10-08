@@ -117,6 +117,24 @@ test('attachTab performs tab-to-page session attach sequence', async t => {
 	t.assert.equal(sessionId, 'page-session-final')
 })
 
+test('attachTab attaches directly when target is already a page', async t => {
+	const browser = createMockBrowser()
+	let pageAttached = false
+	browser.onMethod('Target.attachToTarget', params => {
+		t.assert.equal(params.targetId, 'page-target-direct')
+		t.assert.equal(params.flatten, true)
+		pageAttached = true
+		browser.emitEvent('Target.attachedToTarget', {
+			sessionId: 'page-session-direct',
+			targetInfo: { targetId: 'page-target-direct', type: 'page' }
+		})
+		return { sessionId: 'page-session-direct' }
+	})
+	const sessionId = await browser.attachTab('page-target-direct')
+	t.assert.ok(pageAttached)
+	t.assert.equal(sessionId, 'page-session-direct')
+})
+
 test('attachTab times out if attachedToTarget event is not received', async t => {
 	const browser = createMockBrowser({ timeout: 50 })
 	let detached = false

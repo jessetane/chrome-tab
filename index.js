@@ -14,6 +14,17 @@ class Chrome extends RpcEngine {
 		this.deserialize = JSON.parse
 		this.objectMode = true
 		this.ws = null
+		this.sessions = new Map()
+		this.addEventListener('Target.detachedFromTarget', evt => {
+			const sessionId = evt.data?.sessionId
+			if (!sessionId) return
+			for (const [tid, sid] of this.sessions.entries()) {
+				if (sid === sessionId) {
+					this.sessions.delete(tid)
+					break
+				}
+			}
+		})
 	}
 
 	get connected () {
@@ -47,6 +58,7 @@ class Chrome extends RpcEngine {
 			ws.onmessage = evt => this.receive(evt.data)
 			ws.onclose = () => {
 				if (ws !== this.ws) return
+				this.sessions.clear()
 				this.close(new Error('Browser connection closed'))
 				this.ws = null
 			}
@@ -58,6 +70,7 @@ class Chrome extends RpcEngine {
 			const ws = this.ws
 			this.ws = null
 			ws.close()
+			this.sessions.clear()
 			this.close(new Error('Browser disconnected'))
 		}
 	}
@@ -73,44 +86,49 @@ class Chrome extends RpcEngine {
 	}
 
 	attachTab (targetId) {
+		if (this.sessions.has(targetId)) return Promise.resolve(this.sessions.get(targetId))
 		return new Promise(async (resolve, reject) => {
-			let sessionId
-			const teardown = () => {
-				clearTimeout(timeout)
-				this.removeEventListener('Target.attachedToTarget', onattached)
-				if (sessionId) {
-					this.call('Target.detachFromTarget', { sessionId }).catch(e => {})
-				}
-			}
-			const timeout = setTimeout(async () => {
+			let tabSessionId
+			const timeout = setTimeout(() => {
 				teardown()
 				reject(new Error('Timed out'))
 			}, this.timeout)
 			timeout.unref?.()
-			const onattached = async (evt) => {
-				if (sessionId && evt.data._sessionId) {
-					clearTimeout(timeout)
-					this.removeEventListener('Target.attachedToTarget', onattached)
-					try {
-						await this.call('Target.detachFromTarget', { sessionId })
-						const pageTargetId = evt.data.targetInfo.targetId
-						const res = await this.call('Target.attachToTarget', { targetId: pageTargetId, flatten: true })
-						resolve(res.sessionId)
-					} catch (err) {
-						reject(err)
-					}
+			const teardown = () => {
+				clearTimeout(timeout)
+				this.removeEventListener('Target.attachedToTarget', onattached)
+				if (tabSessionId) {
+					this.call('Target.detachFromTarget', { sessionId: tabSessionId }).catch(e => {})
+				}
+			}
+			const onattached = async evt => {
+				if (evt.data.targetInfo.type !== 'page') return
+				teardown()
+				const pageTargetId = evt.data.targetInfo.targetId
+				if (pageTargetId === targetId) {
+					resolve.done = true
+					this.sessions.set(targetId, evt.data.sessionId)
+					return resolve(evt.data.sessionId)
+				}
+				try {
+					const res = await this.call('Target.attachToTarget', { targetId: pageTargetId, flatten: true })
+					this.sessions.set(targetId, res.sessionId)
+					resolve(res.sessionId)
+				} catch (err) {
+					reject(err)
 				}
 			}
 			try {
 				this.addEventListener('Target.attachedToTarget', onattached)
 				const res = await this.call('Target.attachToTarget', { targetId, flatten: true })
-				sessionId = res.sessionId
+				if (resolve.done) return
+				tabSessionId = res.sessionId
 				await this.call('Target.setAutoAttach', {
 					autoAttach: true,
 					waitForDebuggerOnStart: false,
 					filter: [{ type: 'page' }],
 					flatten: true
-				}, sessionId)
+				}, tabSessionId)
 			} catch (err) {
 				teardown()
 				reject(err)
