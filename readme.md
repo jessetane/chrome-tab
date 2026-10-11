@@ -61,7 +61,7 @@ const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 ### Tools
 - `list_tabs({ query? })` - Lists active tabs (one per window); pass `query` to search all tabs by title or URL.
 - `attach_tab({ targetId?, url? })` - Attaches to a tab by `targetId`, or pass `url` to open and attach. Sets it as default target.
-- `eval({ script, wait?, sessionId? })` - Evaluates JavaScript in the tab and returns the result as JSON.
+- `eval({ expression, wait?, sessionId? })` - Evaluates JavaScript in REPL mode and returns the trailing expression value.
 - `screenshot({ format?, quality?, sessionId? })` - Captures a screenshot of the tab.
 - `call({ method, params?, sessionId? })` - Universal CDP passthrough for raw commands.
 

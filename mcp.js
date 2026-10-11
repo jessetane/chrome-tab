@@ -6,7 +6,7 @@ import RpcEngine from 'rpc-engine'
 import Chrome from './index.js'
 import pkg from './package.json' with { type: 'json' }
 
-const { values } = parseArgs({
+const { values: args } = parseArgs({
 	args: process.argv.slice(2),
 	options: {
 		port: { type: 'string', short: 'p' },
@@ -18,19 +18,11 @@ const { values } = parseArgs({
 	strict: false
 })
 
-const port = values.port ? parseInt(values.port, 10) : (process.env.CHROME_PORT ? parseInt(process.env.CHROME_PORT, 10) : null)
-const host = values.host || process.env.CHROME_HOST || '127.0.0.1'
-const path = values.path || process.env.CHROME_PATH || ''
-const browserName = values.browser || process.env.CHROME_BROWSER || ''
-const userDataDir = values['user-data-dir'] || process.env.CHROME_USER_DATA_DIR || ''
-let browser, currentSessionId = null
-
-async function getBrowser () {
-	if (browser?.connected) return browser
-	browser = new Chrome({ host, port, path, browser: browserName, userDataDir })
-	await browser.connect()
-	return browser
-}
+const port = args.port ? parseInt(args.port, 10) : (process.env.CHROME_PORT ? parseInt(process.env.CHROME_PORT, 10) : null)
+const host = args.host || process.env.CHROME_HOST || '127.0.0.1'
+const path = args.path || process.env.CHROME_PATH || ''
+const browserName = args.browser || process.env.CHROME_BROWSER || ''
+const userDataDir = args['user-data-dir'] || process.env.CHROME_USER_DATA_DIR || ''
 
 const tools = [
 	{
@@ -63,24 +55,24 @@ const tools = [
 		}
 	}, {
 		name: 'eval',
-		description: 'Evaluates JavaScript in the tab and returns the result as JSON.',
+		description: 'Evaluates JavaScript in REPL mode and returns the trailing expression value.',
 		inputSchema: {
 			type: 'object',
 			properties: {
-				script: {
+				expression: {
 					type: 'string',
-					description: 'JavaScript to evaluate in REPL mode. Supports top-level await, let/const re-declaration, and console helpers $(sel) and $$(sel). The trailing expression result is returned.'
+					description: 'JavaScript expression or multi-line statements to evaluate. Trailing expression value is returned. Supports let re-declaration, top-level await and helpers $(sel) and $$(sel).'
 				},
 				wait: {
 					type: 'number',
-					description: 'Optional ms to pause before evaluating script (lets animations, network, or DOM mutations settle)'
+					description: 'Optional ms to pause before evaluating expression'
 				},
 				sessionId: {
 					type: 'string',
 					description: 'Defaults to the most recently attached tab; omit unless targeting a specific background session'
 				}
 			},
-			required: ['script']
+			required: ['expression']
 		}
 	}, {
 		name: 'screenshot',
@@ -127,6 +119,8 @@ const tools = [
 	}
 ]
 
+const helpers = 'const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => Array.from(r.querySelectorAll(s));\n'
+
 const methods = {
 	ping: () => ({}),
 	'tools/list': () => ({ tools }),
@@ -171,11 +165,11 @@ const methods = {
 					await new Promise(r => setTimeout(r, Math.min(Number(args.wait), 30000)))
 				}
 				const res = await b.call('Runtime.evaluate', {
-					expression: args.script,
-					replMode: true,
+					expression: helpers + args.expression,
 					returnByValue: true,
 					awaitPromise: true,
-					includeCommandLineAPI: true
+					userGesture: true,
+					replMode: true
 				}, sessionId)
 				if (res?.exceptionDetails) {
 					const desc = res.exceptionDetails.exception?.description || res.exceptionDetails.text
@@ -229,6 +223,15 @@ const mcp = new RpcEngine({
 		return JSON.stringify(msg)
 	}
 })
+
+let browser, currentSessionId;
+
+async function getBrowser () {
+	if (browser?.connected) return browser
+	browser = new Chrome({ host, port, path, browser: browserName, userDataDir })
+	await browser.connect()
+	return browser
+}
 
 function shutdown () {
 	browser?.disconnect()
