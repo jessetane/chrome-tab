@@ -8,7 +8,7 @@
 		"chrome-tab": "./mcp.js"
 	},
 	"scripts": {
-		"test": "node --test"
+		"test": "node --test test.js"
 	},
 	"engines": {
 		"node": ">=22"
