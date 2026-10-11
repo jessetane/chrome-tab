@@ -59,7 +59,7 @@ const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 - `--path` or `CHROME_PATH`: Custom WebSocket path.
 
 ### Tools
-- `list_tabs({ query? })` - Lists active tabs (one per window); pass `query` to search all tabs by title or URL.
+- `list_tabs({ query? })` - Lists active tabs (one per window); pass `query` to search all tabs including background tabs.
 - `attach_tab({ targetId?, url? })` - Attaches to a tab by `targetId`, or pass `url` to open and attach. Sets it as default target.
 - `eval({ expression, wait?, sessionId? })` - Evaluates JavaScript in REPL mode and returns the trailing expression value.
 - `screenshot({ format?, quality?, sessionId? })` - Captures a screenshot of the tab.

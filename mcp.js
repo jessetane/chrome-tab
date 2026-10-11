@@ -27,19 +27,19 @@ const userDataDir = args['user-data-dir'] || process.env.CHROME_USER_DATA_DIR ||
 const tools = [
 	{
 		name: 'list_tabs',
-		description: 'Lists active Chrome tabs (one per window). Pass query to search all tabs by title or URL.',
+		description: 'Lists active tabs (one per window). Pass query to search ALL tabs including background tabs.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				query: {
 					type: 'string',
-					description: 'Filter tabs by title or URL'
+					description: 'Search all open tabs by title or URL (including background tabs)'
 				}
 			}
 		}
 	}, {
 		name: 'attach_tab',
-		description: 'Attaches to a tab by targetId (or pass url to open and attach). Sets it as the default target for subsequent commands.',
+		description: 'Attaches to a tab by targetId, or pass url to open and attach. Sets it as default target.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -76,7 +76,7 @@ const tools = [
 		}
 	}, {
 		name: 'screenshot',
-		description: 'Captures a screenshot of the tab. sessionId is optional and automatically defaults to the most recently attached tab.',
+		description: 'Captures a screenshot of the tab as a base64 image.',
 		inputSchema: {
 			type: 'object',
 			properties: {
@@ -97,13 +97,13 @@ const tools = [
 		}
 	}, {
 		name: 'call',
-		description: 'Raw CDP passthrough. Calls any Chrome DevTools Protocol method. sessionId defaults to the most recently attached tab for page-level domains, or omit for browser-level methods.',
+		description: 'Raw CDP passthrough. Calls any Chrome DevTools Protocol method.',
 		inputSchema: {
 			type: 'object',
 			properties: {
 				method: {
 					type: 'string',
-					description: 'CDP method (e.g. Page.navigate, Input.dispatchMouseEvent, Target.createTarget)'
+					description: 'CDP method (e.g. Page.navigate, Input.dispatchMouseEvent)'
 				},
 				params: {
 					type: 'object',
