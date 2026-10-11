@@ -5,7 +5,7 @@ Sugar for Chrome's devtools protocol.
 [chrome-devtools-mcp](https://github.com/ChromeDevTools/chrome-devtools-mcp) crashed my machine. The issue appears to worsen with the number of tabs, and I have far too many of those. Raw CDP isn't smooth either as there is currently no straightforward way to get a page session for an active tab, also Chrome's JSON-RPC layer diverged from [spec](https://www.jsonrpc.org/specification) (`sessionId` outside params, demanding numeric message IDs, etc).
 
 ## How
-* Auto-discovers active debugging ports across Chromium-based browsers on macOS, Linux, and Windows without flags or configuration.
+* Auto-discovers your running Chromium-based browser on macOS, Linux, and Windows. No flags or restarts.
 * Workaround for cleanly finding active tabs / pages / sessionIds.
 * stdio based MCP server with just a pinch of sugar, dumb proxy for everything else.
 
@@ -54,19 +54,19 @@ const { data } = await browser.call('Page.captureScreenshot', {}, sessionId)
 ### Options
 - `--browser`, `-b` or `CHROME_BROWSER`: Target a specific browser flavor (chrome, canary, chromium, edge, brave, arc, vivaldi, opera).
 - `--user-data-dir` or `CHROME_USER_DATA_DIR`: Discover the active port from a specific user data directory (overrides --browser).
-- `--port`, `-p` or `CHROME_PORT`: Connect directly to an explicit port (overrides auto-discovery e.g. --user-data-dir, --browser).
+- `--port`, `-p` or `CHROME_PORT`: Connect directly to an explicit port (overrides --user-data-dir and --browser).
 - `--host`, `-h` or `CHROME_HOST`: Host to connect to (default: 127.0.0.1).
 - `--path` or `CHROME_PATH`: Custom WebSocket path.
 
 ### Tools
-- `list_tabs({ query? })` - Lists active tabs (one per window); pass `query` to search all tabs including background tabs.
+- `list_tabs({ query? })` - Lists active tabs (one per window); pass `query` to search all including background tabs.
 - `attach_tab({ targetId?, url? })` - Attaches to a tab by `targetId`, or pass `url` to open and attach. Sets it as default target.
 - `eval({ expression, wait?, sessionId? })` - Evaluates JavaScript in REPL mode and returns the trailing expression value.
 - `screenshot({ format?, quality?, sessionId? })` - Captures a screenshot of the tab.
 - `call({ method, params?, sessionId? })` - Universal CDP passthrough for raw commands.
 
 ## Security
-Because chrome-tab attaches to your live browser and grants raw CDP access, it automatically inherits all of your authenticated sessions, cookies and other local storage along with full code execution privileges. Treat agent browser access like you would shell access. Hallucinations, mistakes and prompt injection are real, consider yourself warned!
+Because chrome-tab attaches to your live browser and grants raw CDP access, it automatically inherits all of your authenticated sessions, cookies and other local storage along with full code execution privileges. Treat agent browser access like you would shell access. Hallucinations, mistakes and prompt injection are real, you've been warned!
 
 ## License
 MIT
